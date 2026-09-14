@@ -53,6 +53,19 @@ Assert-Condition ($exitCode -eq 0) "Exit code is 0"
 Assert-Condition ($dryRunOutput -match "\[DRY RUN\] Simulation complete") "Dry run confirms simulation without changes"
 
 # -----------------------------------------------------------
+# Test 2b: loq-mode uni --dry-run --reboot / -r
+# -----------------------------------------------------------
+Write-Host "`nTest 2b: Uni Mode --dry-run with --reboot and -r flags" -ForegroundColor White
+$rebootOutput = & $exePath uni --dry-run --reboot | Out-String
+$exitCode = $LASTEXITCODE
+Assert-Condition ($exitCode -eq 0) "Exit code is 0 with --reboot"
+Assert-Condition ($rebootOutput -match "Would initiate system restart") "Dry-run safely simulates restart without rebooting"
+$shortRebootOutput = & $exePath uni --dry-run -r | Out-String
+Assert-Condition ($LASTEXITCODE -eq 0) "Exit code is 0 with -r flag"
+Assert-Condition ($shortRebootOutput -match "Would initiate system restart") "Short flag -r recognized properly"
+
+
+# -----------------------------------------------------------
 # Test 3: loq-mode gaming without saved state
 # -----------------------------------------------------------
 Write-Host "`nTest 3: Gaming Mode when no state exists" -ForegroundColor White
@@ -138,7 +151,7 @@ Write-Host "`nTest 7: Auto Mode detection" -ForegroundColor White
 $autoOutput = & $exePath auto --dry-run | Out-String
 $exitCode = $LASTEXITCODE
 Assert-Condition ($exitCode -eq 0) "Auto mode exit code is 0"
-Assert-Condition ($autoOutput -match "Current Power Status") "Detects current power status"
+Assert-Condition ($autoOutput -match "Power Source") "Detects current power status"
 Assert-Condition ($autoOutput -match "RECOMMENDATION|OK") "Provides intelligent mode decision"
 
 # -----------------------------------------------------------

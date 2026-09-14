@@ -405,7 +405,13 @@ function Get-LOQGpuMode {
 }
 
 function Set-LOQGpuMode {
-    param([int]$GSyncStatus, [int]$IGPUModeStatus)
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$GSyncStatus,
+        [Parameter(Mandatory = $true)]
+        [int]$IGPUModeStatus,
+        [switch]$Reboot
+    )
     Get-LOQWmiScope
     $gz = Get-CimInstance -Namespace 'root\wmi' -ClassName 'LENOVO_GAMEZONE_DATA'
     Invoke-CimMethod -InputObject $gz -MethodName 'SetGSyncStatus' -Arguments @{ Data = [uint32]$GSyncStatus } | Out-Null
@@ -415,6 +421,10 @@ function Set-LOQGpuMode {
         try {
             Invoke-CimMethod -InputObject $gz -MethodName 'NotifyDGPUStatus' -Arguments @{ status = [uint32]$notifyVal } | Out-Null
         } catch { }
+    }
+    if ($Reboot) {
+        Write-LOQLog -Level "INFO" -Message "Initiating system restart for MUX switch (/r /t 3)"
+        Start-Process -FilePath "shutdown.exe" -ArgumentList "/r /t 3 /c `"Rebooting into LOQ Uni Mode (iGPU-only)...`"" -NoNewWindow
     }
 }
 

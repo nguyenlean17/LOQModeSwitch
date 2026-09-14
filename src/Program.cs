@@ -59,6 +59,7 @@ namespace LOQMode
                 bool dryRun = HasFlag(args, "--dry-run");
                 bool force = HasFlag(args, "--force");
                 bool noElevate = HasFlag(args, "--no-elevate");
+                bool reboot = HasFlag(args, "--reboot") || HasFlag(args, "-r");
 
                 bool needsElevation = (command == "uni" || command == "gaming" || command == "status" || command == "auto");
 
@@ -76,10 +77,10 @@ namespace LOQMode
                         return HandleStatus();
 
                     case "uni":
-                        return HandleUni(dryRun, force);
+                        return HandleUni(dryRun, force, reboot);
 
                     case "gaming":
-                        return HandleGaming(dryRun, force);
+                        return HandleGaming(dryRun, force, reboot);
 
                     case "auto":
                         return HandleAuto(dryRun, force);
@@ -121,12 +122,14 @@ namespace LOQMode
                 Console.WriteLine("Select an action:");
                 Console.ResetColor();
                 Console.WriteLine("  [1] Switch to Uni Mode (Quiet, 60 Hz, Backlight Off, Best Power Efficiency)");
-                Console.WriteLine("  [2] Switch to Gaming Mode (Restore saved baseline configuration)");
-                Console.WriteLine("  [3] Preview Uni Mode (--dry-run)");
-                Console.WriteLine("  [4] Auto Mode (Detect AC / Battery)");
-                Console.WriteLine("  [5] Refresh Status");
+                Console.WriteLine("  [2] Switch to Uni Mode & Reboot into iGPU-only (--reboot)");
+                Console.WriteLine("  [3] Switch to Gaming Mode (Restore saved baseline configuration)");
+                Console.WriteLine("  [4] Switch to Gaming Mode & Reboot (--reboot)");
+                Console.WriteLine("  [5] Preview Uni Mode (--dry-run)");
+                Console.WriteLine("  [6] Auto Mode (Detect AC / Battery)");
+                Console.WriteLine("  [7] Refresh Status");
                 Console.WriteLine("  [0] Exit");
-                Console.Write("\nEnter choice [0-5]: ");
+                Console.Write("\nEnter choice [0-7]: ");
 
                 string input = Console.ReadLine();
                 if (input == null) break;
@@ -141,22 +144,41 @@ namespace LOQMode
                 switch (input)
                 {
                     case "1":
-                        HandleUni(dryRun: false, force: false);
+                        int gsyncMode = LenovoWmi.GetGSyncStatus();
+                        bool doReboot = false;
+                        if (gsyncMode == 1)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Cyan;
+                            Console.Write("Laptop is in dGPU mode. A restart is required for iGPU-only mode. Reboot now? [y/N]: ");
+                            Console.ResetColor();
+                            string ans = Console.ReadLine();
+                            if (ans != null && (ans.Trim().Equals("y", StringComparison.OrdinalIgnoreCase) || ans.Trim().Equals("yes", StringComparison.OrdinalIgnoreCase)))
+                            {
+                                doReboot = true;
+                            }
+                        }
+                        HandleUni(dryRun: false, force: false, reboot: doReboot);
                         break;
                     case "2":
-                        HandleGaming(dryRun: false, force: false);
+                        HandleUni(dryRun: false, force: false, reboot: true);
                         break;
                     case "3":
-                        HandleUni(dryRun: true, force: false);
+                        HandleGaming(dryRun: false, force: false, reboot: false);
                         break;
                     case "4":
-                        HandleAuto(dryRun: false, force: false);
+                        HandleGaming(dryRun: false, force: false, reboot: true);
                         break;
                     case "5":
+                        HandleUni(dryRun: true, force: false, reboot: false);
+                        break;
+                    case "6":
+                        HandleAuto(dryRun: false, force: false);
+                        break;
+                    case "7":
                         continue;
                     default:
                         Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine("Invalid option. Please enter 0, 1, 2, 3, 4, or 5.");
+                        Console.WriteLine("Invalid option. Please enter 0 through 7.");
                         Console.ResetColor();
                         break;
                 }
@@ -375,7 +397,7 @@ namespace LOQMode
             return 0;
         }
 
-        static int HandleUni(bool dryRun, bool force)
+        static int HandleUni(bool dryRun, bool force, bool reboot = false)
         {
             Console.WriteLine("======================================================");
             Console.WriteLine(dryRun ? "             LOQ Mode - Uni Mode [DRY RUN]             " : "               LOQ Mode - Activating Uni Mode          ");
@@ -404,10 +426,20 @@ namespace LOQMode
             Console.WriteLine(string.Format("  * Lenovo Thermal:   {0} -> Quiet (Blue LED)", FormatThermal(curThermal)));
             Console.WriteLine(string.Format("  * Keyboard Light:   {0} -> Off", FormatKbd(curKbd)));
             Console.WriteLine(string.Format("  * Windows Power:    {0} -> Best Power Efficiency", FormatWinPower(curWinPower)));
+            if (reboot)
+            {
+                Console.WriteLine("  * Reboot Action:    System will REBOOT in 3 seconds to complete iGPU MUX transition.");
+            }
             Console.WriteLine("------------------------------------------------------");
 
             if (dryRun)
             {
+                if (reboot)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("[DRY RUN] Would initiate system restart in 3 seconds to activate iGPU-only mode.");
+                    Console.ResetColor();
+                }
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("[DRY RUN] Simulation complete. No system settings were changed.");
                 Console.ResetColor();
@@ -582,10 +614,41 @@ namespace LOQMode
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("[SUCCESS] Uni Mode configuration applied successfully!");
             Console.ResetColor();
+
+            if (reboot)
+            {
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Magenta;
+                Console.WriteLine("======================================================");
+                Console.WriteLine("[REBOOT] Initiating system restart in 3 seconds to complete iGPU-only transition...");
+                Console.WriteLine("         (To abort: run 'shutdown /a' in command prompt)");
+                Console.WriteLine("======================================================");
+                Console.ResetColor();
+                Logger.Info("Initiating system restart for iGPU mode via shutdown.exe /r /t 3");
+
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "shutdown.exe",
+                        Arguments = "/r /t 3 /c \"Rebooting into LOQ Uni Mode (iGPU-only)...\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("[FAIL] Failed to trigger system restart: " + ex.Message);
+                    Console.ResetColor();
+                    Logger.Error("Reboot error: " + ex.ToString());
+                }
+            }
+
             return 0;
         }
 
-        static int HandleGaming(bool dryRun, bool force)
+        static int HandleGaming(bool dryRun, bool force, bool reboot = false)
         {
             Console.WriteLine("======================================================");
             Console.WriteLine(dryRun ? "            LOQ Mode - Gaming Mode [DRY RUN]           " : "             LOQ Mode - Restoring Gaming Mode          ");
@@ -624,10 +687,20 @@ namespace LOQMode
             Console.WriteLine(string.Format("  * Lenovo Thermal:   {0} -> {1}", FormatThermal(curThermal), FormatThermal(saved.ThermalMode)));
             Console.WriteLine(string.Format("  * Keyboard Light:   {0} -> {1}", FormatKbd(curKbd), FormatKbd(saved.KeyboardLight)));
             Console.WriteLine(string.Format("  * Windows Power:    {0} -> {1}", FormatWinPower(curWinPower), FormatWinPower(targetWinPower)));
+            if (reboot)
+            {
+                Console.WriteLine("  * Reboot Action:    System will REBOOT in 3 seconds to complete Gaming Mode transition.");
+            }
             Console.WriteLine("------------------------------------------------------");
 
             if (dryRun)
             {
+                if (reboot)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("[DRY RUN] Would initiate system restart in 3 seconds to restore Gaming Mode.");
+                    Console.ResetColor();
+                }
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("[DRY RUN] Simulation complete. No system settings were restored.");
                 Console.ResetColor();
@@ -766,6 +839,37 @@ namespace LOQMode
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("[SUCCESS] Gaming Mode configuration restored successfully!");
             Console.ResetColor();
+
+            if (reboot)
+            {
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Magenta;
+                Console.WriteLine("======================================================");
+                Console.WriteLine("[REBOOT] Initiating system restart in 3 seconds to complete Gaming Mode transition...");
+                Console.WriteLine("         (To abort: run 'shutdown /a' in command prompt)");
+                Console.WriteLine("======================================================");
+                Console.ResetColor();
+                Logger.Info("Initiating system restart for Gaming mode via shutdown.exe /r /t 3");
+
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "shutdown.exe",
+                        Arguments = "/r /t 3 /c \"Rebooting into LOQ Gaming Mode...\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("[FAIL] Failed to trigger system restart: " + ex.Message);
+                    Console.ResetColor();
+                    Logger.Error("Reboot error: " + ex.ToString());
+                }
+            }
+
             return 0;
         }
 
@@ -776,12 +880,11 @@ namespace LOQMode
             Console.WriteLine("======================================================");
 
             var pwr = PowerManager.GetPowerStatus();
-            Console.WriteLine("Current Power Status: " + (pwr.IsOnBattery ? "Running on Battery" : "Plugged into AC Adapter"));
-            Console.WriteLine("Battery Remaining:    " + pwr.BatteryLifePercent + "%");
+            var saved = StateManager.LoadState();
+            string currentProfile = (saved != null) ? saved.ActiveProfile : "UNKNOWN";
 
-            var state = StateManager.LoadState();
-            string currentProfile = state != null ? state.ActiveProfile : "UNKNOWN";
-            Console.WriteLine("Current Profile:      " + currentProfile);
+            Console.WriteLine(string.Format("Power Source: {0} ({1}%)", pwr.IsOnBattery ? "Battery" : "AC Power", pwr.BatteryLifePercent));
+            Console.WriteLine(string.Format("Current Active Profile: {0}", currentProfile));
             Console.WriteLine("------------------------------------------------------");
 
             if (pwr.IsOnBattery)
@@ -789,7 +892,7 @@ namespace LOQMode
                 if (currentProfile == "UNI")
                 {
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("[OK] Laptop is on battery and Uni Mode is already active. Optimal configuration.");
+                    Console.WriteLine("[OK] Laptop is on battery and already configured for Uni Mode.");
                     Console.ResetColor();
                     return 0;
                 }
@@ -844,6 +947,8 @@ namespace LOQMode
             Console.WriteLine("  auto        Detect AC / Battery status and recommend or apply appropriate profile.");
             Console.WriteLine();
             Console.WriteLine("OPTIONS:");
+            Console.WriteLine("  --reboot, -r Automatically restart the system after applying settings to complete");
+            Console.WriteLine("              the hardware MUX switch into iGPU-only mode.");
             Console.WriteLine("  --dry-run   Simulate the command without applying any hardware or OS changes.");
             Console.WriteLine("  --force     Skip confirmation prompts if any.");
             Console.WriteLine("  --no-elevate Do not attempt to auto-elevate (fails if admin is required).");

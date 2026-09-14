@@ -1,4 +1,4 @@
-﻿# LOQ Mode - Lenovo LOQ Automation Tool
+# LOQ Mode - Lenovo LOQ Automation Tool
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg)](https://microsoft.com/windows)
@@ -49,14 +49,19 @@ Active Profile      : GAMING
 
 Select an action:
   [1] Switch to Uni Mode (Quiet, 60 Hz, Backlight Off, Best Power Efficiency)
-  [2] Switch to Gaming Mode (Restore saved baseline configuration)
-  [3] Preview Uni Mode (--dry-run)
-  [4] Auto Mode (Detect AC / Battery)
-  [5] Refresh Status
+  [2] Switch to Uni Mode & Reboot into iGPU-only (--reboot)
+  [3] Switch to Gaming Mode (Restore saved baseline configuration)
+  [4] Switch to Gaming Mode & Reboot (--reboot)
+  [5] Preview Uni Mode (--dry-run)
+  [6] Auto Mode (Detect AC / Battery)
+  [7] Refresh Status
   [0] Exit
 
-Enter choice [0-5]: 
+Enter choice [0-7]: 
 ```
+
+> **Note on MUX Switch & Restart:**
+> When the laptop is currently in discrete dGPU mode, internal display pins are physically routed to the NVIDIA PCIe lanes. The Lenovo firmware queues the hardware MUX switch to Hybrid/iGPU-only, but the physical pin rewiring only executes during BIOS POST. Using option `[2]` or passing `--reboot` automatically initiates a safe 3-second restart into iGPU-only mode.
 
 ### 2. Command-Line Interface (CLI)
 
@@ -66,14 +71,20 @@ Add `build\` to your system `PATH`, or run directly in PowerShell / Command Prom
 # Inspect current live status of all subsystems
 loq-mode.exe status
 
-# Preview changes without modifying hardware
+# Preview changes without modifying hardware (dry-run)
 loq-mode.exe uni --dry-run
+loq-mode.exe uni --dry-run --reboot
 
-# Activate Uni Mode before heading to class
+# Activate Uni Mode (queues MUX switch to iGPU if in dGPU mode)
 loq-mode.exe uni
+
+# Activate Uni Mode and immediately reboot to complete iGPU MUX transition
+loq-mode.exe uni --reboot
+loq-mode.exe uni -r
 
 # Restore Gaming baseline when back home
 loq-mode.exe gaming
+loq-mode.exe gaming --reboot
 
 # Intelligent AC vs Battery status check
 loq-mode.exe auto
@@ -90,11 +101,14 @@ Import-Module .\src\LOQMode.psm1
 # Get status object
 Get-LOQStatus
 
+# Switch GPU mode (0 = Hybrid, 1 = iGPU-only) with optional -Reboot switch
+Set-LOQGpuMode -GSyncStatus 0 -IGPUModeStatus 1 -Reboot
+
 # Subsystem cmdlets
-Set-LOQThermalMode -Mode Quiet          # Quiet (1), Balanced (2), Performance (3)
-Set-LOQDisplayRefreshRate -Hz 60       # Sets display refresh rate via CCD API
-Set-LOQKeyboardBacklight -Level Off     # Off (1), Low (2), High (3)
-Set-LOQWindowsPowerMode -Mode BestPowerEfficiency
+Set-LOQThermalMode -Mode 1              # Quiet (1), Balanced (2), Performance (3)
+Set-LOQDisplayRefreshRate -Hz 60        # Sets display refresh rate via CCD API
+Set-LOQKeyboardBacklight -Level 1       # Off (1), Low (2), High (3)
+Set-LOQWindowsPowerMode -GuidString "961cc777-2547-4f9d-8174-7d86181b8a7a"
 ```
 
 ---
