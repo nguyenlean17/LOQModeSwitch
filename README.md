@@ -146,25 +146,6 @@ powershell -ExecutionPolicy Bypass -File "tests\test_loq_mode.ps1"
 
 ---
 
-## Pushing to Your GitHub
-
-To publish this repository to your GitHub account:
-
-```bash
-# 1. Open terminal in the project directory
-cd C:\Users\Admin\.gemini\antigravity-ide\scratch\LOQMode
-
-# 2. Add your GitHub repository as remote
-git remote add origin https://github.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPO_NAME>.git
-
-# 3. Rename branch to main (if not already main)
-git branch -M main
-
-# 4. Push code
-git push -u origin main
-```
-
----
 
 ## License
 
