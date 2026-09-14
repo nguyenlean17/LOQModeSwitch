@@ -5,9 +5,8 @@
 [![Architecture](https://img.shields.io/badge/Arch-x64-orange.svg)]()
 [![Tests](https://img.shields.io/badge/Tests-28%20Passed-brightgreen.svg)]()
 
-A lightweight, standalone Windows automation tool built specifically for **Lenovo LOQ** (and compatible Legion) laptops. Effortlessly switches between **Uni Mode** (optimized for all-day battery life during lectures without a charger) and **Gaming Mode** (restoring your exact baseline hardware configuration).
+A lightweight, standalone Windows automation tool built specifically for **Lenovo LOQ** (and compatible Legion) laptops. Effortlessly switches between **Uni Mode** (optimized for long battery life during lectures without a charger) and **Gaming Mode** (restoring your exact baseline hardware configuration).
 
-All Lenovo-specific mechanisms were reverse-engineered directly from [LenovoLegionToolkit](https://github.com/BartoszCichecki/LenovoLegionToolkit) rather than guessing undocumented APIs or modifying firmware unsafely.
 
 ---
 
