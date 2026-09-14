@@ -1,0 +1,37 @@
+﻿name: Build and Test LOQ Mode
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Compile loq-mode.exe
+      shell: cmd
+      run: |
+        call build\build.bat
+
+    - name: Verify Executable Exists
+      shell: pwsh
+      run: |
+        if (!(Test-Path "build\loq-mode.exe")) {
+          Write-Error "build\loq-mode.exe was not created!"
+          exit 1
+        }
+        $file = Get-Item "build\loq-mode.exe"
+        Write-Host "Executable built successfully: $($file.Length) bytes"
+
+    - name: Upload Binary Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: loq-mode-windows-x64
+        path: build/loq-mode.exe
+        if-no-files-found: error

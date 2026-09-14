@@ -1,0 +1,24 @@
+﻿# Visual Studio / IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build outputs
+[Bb]in/
+[Oo]bj/
+*.pdb
+*.tmp
+
+# Local logs and state
+*.log
+loq-mode.log
+state.json
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
